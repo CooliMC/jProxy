@@ -5,7 +5,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -16,9 +15,10 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.util.Arrays;
 import javax.imageio.ImageIO;
 
-public class RequestHandler implements Runnable
+public class RequestHandler extends Thread
 {
     /**
      * Socket connected to client passed by Proxy server
@@ -98,11 +98,13 @@ public class RequestHandler implements Runnable
 
 
         // Check if site is blocked
-        if(ProxyServer.isBlocked(urlString)){
+        System.out.println("URL: " + urlString + " in List:");
+
+        //if(ProxyServer.isBlocked(urlString)){
             System.out.println("Blocked site requested : " + urlString);
             blockedSiteRequested();
-            return;
-        }
+            //return;
+        //}
 
 
         // Check request type
@@ -118,7 +120,7 @@ public class RequestHandler implements Runnable
                 System.out.println("Cached Copy found for : " + urlString + "\n");
                 sendCachedPageToClient(file);
             } else*/ {
-                System.out.println("HTTP GET for : " + urlString + "\n");
+               System.out.println("HTTP GET for : " + urlString + "\n");
                 sendNonCachedToClient(urlString);
             }
         }
