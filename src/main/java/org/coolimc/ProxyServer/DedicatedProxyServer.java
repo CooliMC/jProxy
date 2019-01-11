@@ -4,9 +4,12 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 public class DedicatedProxyServer
 {
+    private static final Pattern VALID_DOMAIN = Pattern.compile("^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,16}$");
+
     public static void main(String[] args)
     {
         DedicatedProxyServer myProxy = new DedicatedProxyServer(8085);
@@ -17,6 +20,7 @@ public class DedicatedProxyServer
     private AtomicBoolean running;
 
     private List<String> blockedSites;
+    private List<String> blockedSource;
     private List<RequestHandler> serviceThreads;
 
     public DedicatedProxyServer(int port)
@@ -30,7 +34,11 @@ public class DedicatedProxyServer
 
         //Try to setup lists
         this.blockedSites = Collections.synchronizedList(new ArrayList<>());
+        this.blockedSource = Collections.synchronizedList(new ArrayList<>());
         this.serviceThreads = Collections.synchronizedList(new ArrayList<>());
+
+        //Load list for sources of BlockedUrls
+        this.loadBlockSites();
 
         //Start ConsoleInterface
         new ConsoleInterface().start();
@@ -53,11 +61,95 @@ public class DedicatedProxyServer
 
     private void closeServer()
     {
+        //Close by variable
         System.out.println("\nClosing Server..");
         this.running.set(false);
 
+        //Close all connectionThreads
+        for(RequestHandler tempRequest : this.serviceThreads)
+            tempRequest.running.set(false);
+
+        //Close serverSocket
         try { this.serverSocket.close(); }
         catch(Exception e) { /* Nothing to do here */ }
+    }
+
+    private void loadBlockSites()
+    {
+        File blockedSitesSourceFile = new File("blockedSitesSource.txt");
+        File blockedSitesListFile = new File("blockedSitesList.txt");
+        String tempLine;
+
+        //Try to read or create blocked sites source
+        if (!blockedSitesSourceFile.exists())
+        {
+            //Inform user
+            System.out.println("No blocked sites source file found - creating new file");
+
+            //Create file and inform user
+            try { blockedSitesSourceFile.createNewFile(); }
+            catch(Exception e1) { /* Nothing to do here */ }
+        } else {
+            //Create a fileStream for file to list converting
+            this.readFileToList(blockedSitesSourceFile, this.blockedSource);
+        }
+
+        //Try to read create and fill blocked sites list
+        if(!blockedSitesListFile.exists())
+        {
+            //Inform user
+            System.out.println("No blocked sites list file found - creating new file");
+
+            //Create file and inform user
+            try { blockedSitesListFile.createNewFile(); }
+            catch(Exception e1) { /* Nothing to do here */ }
+        } else {
+            //Create a fileStream for file to list converting
+            this.readFileToList(blockedSitesListFile, this.blockedSites);
+        }
+
+        //Fill blockedSitesList with entries from sourceFiles
+        for(String tempSource : this.blockedSource)
+        {
+            System.out.println("Trying to fetch URLs from " + tempSource);
+
+            try {
+                //Create connection and setup BufferedReader
+                HttpURLConnection tempCon = ((HttpURLConnection) (new URL(tempSource)).openConnection());
+                BufferedReader inputReader = new BufferedReader(new InputStreamReader(tempCon.getInputStream()));
+
+                while((tempLine = inputReader.readLine()) != null)
+                {
+                    //Remove whiteSpace and tab before and after
+                    tempLine = tempLine.replaceAll("\t", "");
+                    tempLine = tempLine.trim();
+
+                    //Check for valid URL or IP
+                    if(
+                        (tempLine.length() < 3) ||
+                        (tempLine.startsWith("#")) ||
+                        (tempLine.contains("localhost")) ||
+                        (tempLine.contains("127.0.0.1"))
+                    ) continue;
+                    String tt = tempLine;
+                    //Check for split domain with alternative ip
+                    if(tempLine.contains(" "))
+                        tempLine = (tempLine.substring(tempLine.indexOf(" ")).trim());
+
+                    //Check for a comment at the end
+                    if(tempLine.contains("#"))
+                        tempLine = (tempLine.substring(0, tempLine.indexOf("#")).trim());
+
+                    //Check for semicolon at the domain end
+                    if(tempLine.contains(";"))
+                        tempLine = (tempLine.substring(0, tempLine.indexOf(";")).trim());
+
+                    this.blockedSites.add(tempLine);
+                }
+            } catch(Exception e1) {
+                /* Nothing to do here */
+            }
+        }
     }
 
     private boolean isBlocked(String url)
@@ -66,12 +158,37 @@ public class DedicatedProxyServer
         if(url == null) return false;
         String modUrl = url.toLowerCase();
 
+        //Check if http in front of url
+
         //Check for exact match with lower charset
         for(String tempUrl : this.blockedSites)
-            if(modUrl.contains(tempUrl)) return true;
+            if(modUrl.equals(tempUrl))
+                return true;
 
         //If not return false
         return false;
+    }
+
+    private void readFileToList(File sourceFile, List destList)
+    {
+        //Create temporary String for Lines
+        String tempLine;
+
+        //Create a fileStream for file to list converting
+        try(BufferedReader fileReader  = new BufferedReader(new FileReader(sourceFile)))
+        {
+            while((tempLine = fileReader.readLine()) != null)
+            {
+                //Trim tempLine
+                tempLine = tempLine.trim();
+
+                //Check if valid
+                if(tempLine.length() > 2)
+                    destList.add(tempLine);
+            }
+        } catch(Exception e1) {
+            /* Nothing to do here */
+        }
     }
 
     private final class ConsoleInterface extends Thread
@@ -244,6 +361,17 @@ public class DedicatedProxyServer
         private void connectRelay(String remoteAddress)
         {
             try {
+                //Check if the RemoteAddress is on the BlockList
+                if(isBlocked(remoteAddress))
+                {
+                    System.out.println("Blocked address '" + remoteAddress + "'");
+
+                    this.blockedSiteRequested();
+                    this.closeConnection(this.socket, null);
+
+                    return;
+                }
+
                 //Get URL of remoteAddress
                 URL remoteURL = new URL(remoteAddress);
 
