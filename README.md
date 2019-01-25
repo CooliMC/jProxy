@@ -8,6 +8,7 @@
 - Fast ***isBlocked()*** check with HashSets
 - Console-based and lightweight
 - Simple block-list for own blocks
+- Https support
 
 
 ### Roadmap
