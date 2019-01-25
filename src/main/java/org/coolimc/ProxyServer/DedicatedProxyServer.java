@@ -4,12 +4,9 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Pattern;
 
 public class DedicatedProxyServer
 {
-    private static final Pattern VALID_DOMAIN = Pattern.compile("^((?!-)[A-Za-z0-9-]{1,63}(?<!-)\\.)+[A-Za-z]{2,16}$");
-
     public static void main(String[] args)
     {
         DedicatedProxyServer myProxy = new DedicatedProxyServer(8085);
@@ -19,7 +16,7 @@ public class DedicatedProxyServer
     private ServerSocket serverSocket;
     private AtomicBoolean running;
 
-    private List<String> blockedSites;
+    private Set<String> blockedSites;
     private List<String> blockedSource;
     private List<RequestHandler> serviceThreads;
 
@@ -33,7 +30,7 @@ public class DedicatedProxyServer
         catch(Exception e) { this.running.set(false); return; }
 
         //Try to setup lists
-        this.blockedSites = Collections.synchronizedList(new ArrayList<>());
+        this.blockedSites = Collections.synchronizedSet(new HashSet<>());
         this.blockedSource = Collections.synchronizedList(new ArrayList<>());
         this.serviceThreads = Collections.synchronizedList(new ArrayList<>());
 
@@ -91,7 +88,7 @@ public class DedicatedProxyServer
             catch(Exception e1) { /* Nothing to do here */ }
         } else {
             //Create a fileStream for file to list converting
-            this.readFileToList(blockedSitesSourceFile, this.blockedSource);
+            this.readFileToCollection(blockedSitesSourceFile, this.blockedSource);
         }
 
         //Try to read create and fill blocked sites list
@@ -105,7 +102,7 @@ public class DedicatedProxyServer
             catch(Exception e1) { /* Nothing to do here */ }
         } else {
             //Create a fileStream for file to list converting
-            this.readFileToList(blockedSitesListFile, this.blockedSites);
+            this.readFileToCollection(blockedSitesListFile, this.blockedSites);
         }
 
         //Fill blockedSitesList with entries from sourceFiles
@@ -120,9 +117,8 @@ public class DedicatedProxyServer
 
                 while((tempLine = inputReader.readLine()) != null)
                 {
-                    //Remove whiteSpace and tab before and after
-                    tempLine = tempLine.replaceAll("\t", "");
-                    tempLine = tempLine.trim();
+                    //Remove whiteSpace and tab before and after and toLowerCase
+                    tempLine = (tempLine.replaceAll("\t", "").trim().toLowerCase());
 
                     //Check for valid URL or IP
                     if(
@@ -131,7 +127,7 @@ public class DedicatedProxyServer
                         (tempLine.contains("localhost")) ||
                         (tempLine.contains("127.0.0.1"))
                     ) continue;
-                    String tt = tempLine;
+
                     //Check for split domain with alternative ip
                     if(tempLine.contains(" "))
                         tempLine = (tempLine.substring(tempLine.indexOf(" ")).trim());
@@ -156,20 +152,12 @@ public class DedicatedProxyServer
     {
         //Check for valid url
         if(url == null) return false;
-        String modUrl = url.toLowerCase();
 
         //Check if http in front of url
-
-        //Check for exact match with lower charset
-        for(String tempUrl : this.blockedSites)
-            if(modUrl.equals(tempUrl))
-                return true;
-
-        //If not return false
-        return false;
+        return this.blockedSites.contains(url.toLowerCase());
     }
 
-    private void readFileToList(File sourceFile, List destList)
+    private void readFileToCollection(File sourceFile, Collection<String> destList)
     {
         //Create temporary String for Lines
         String tempLine;
@@ -184,7 +172,7 @@ public class DedicatedProxyServer
 
                 //Check if valid
                 if(tempLine.length() > 2)
-                    destList.add(tempLine);
+                    destList.add(tempLine.toLowerCase());
             }
         } catch(Exception e1) {
             /* Nothing to do here */
@@ -201,9 +189,9 @@ public class DedicatedProxyServer
             while(running.get())
             {
                 System.out.println("Enter new site to block, or type \"blocked\" to see blocked sites, \"connections\" to see current connection count, or \"close\" to close server.");
-                command = scanner.nextLine();
+                command = (scanner.nextLine().toLowerCase());
 
-                if(command.toLowerCase().equals("blocked"))
+                if(command.equals("blocked"))
                 {
                     System.out.println("\nCurrently Blocked Sites");
 
@@ -213,12 +201,12 @@ public class DedicatedProxyServer
                     System.out.println();
                 }
 
-                else if(command.toLowerCase().equals("clear"))
+                else if(command.equals("clear"))
                 {
                     System.out.println("\nCurrently Blocked Sites cleared");
                 }
 
-                else if(command.toLowerCase().equals("connections"))
+                else if(command.equals("connections"))
                 {
                     System.out.println("\nCurrent Connection Count: " + serviceThreads.size() + " \n");
                     System.out.println();
@@ -231,7 +219,8 @@ public class DedicatedProxyServer
                     closeServer();
                 }
 
-                else if(command.length() > 3) {
+                else if(command.length() > 3)
+                {
                     blockedSites.add(command);
                     System.out.println("\n" + command + " blocked successfully \n");
                 }
@@ -408,14 +397,18 @@ public class DedicatedProxyServer
 
                 while(running.get() && !this.socket.isClosed() && (read >= 0))
                 {
-                    read = fromServer.read(buffer);
+                    try {
+                        read = fromServer.read(buffer);
 
-                    if(read > 0)
-                    {
-                        toClient.write(buffer, 0, read);
+                        if(read > 0)
+                        {
+                            toClient.write(buffer, 0, read);
 
-                        if(fromServer.available() < 1)
-                            toClient.flush();
+                            if(fromServer.available() < 1)
+                                toClient.flush();
+                        }
+                    } catch (Exception e1) {
+                        /* Nothing to do here */
                     }
                 }
 
@@ -423,8 +416,8 @@ public class DedicatedProxyServer
                 this.closeConnection(this.socket, null);
                 proxyToServer.disconnect();
 
-            } catch(Exception e) {
-                e.printStackTrace();
+            } catch(Exception e2) {
+                e2.printStackTrace();
                 this.closeConnection(this.socket, null);
             }
         }
@@ -535,17 +528,21 @@ public class DedicatedProxyServer
 
                     while(running.get() && !this.fromSocket.isClosed() && !this.toSocket.isClosed() && (read >= 0))
                     {
-                        read = fromServer.read(buffer);
+                        try {
+                            read = fromServer.read(buffer);
 
-                        if(read > 0)
-                        {
-                            toClient.write(buffer, 0, read);
+                            if (read > 0) {
+                                toClient.write(buffer, 0, read);
 
-                            if(fromServer.available() < 1)
-                                toClient.flush();
+                                if (fromServer.available() < 1)
+                                    toClient.flush();
+                            }
+
+                        } catch(Exception e1) {
+                            /* Nothing to do here */
                         }
                     }
-                } catch (Exception e) {
+                } catch (Exception e2) {
                     /* Nothing to do here */
                 }
 
