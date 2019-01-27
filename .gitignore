@@ -5,7 +5,6 @@
 *.jar
 *.iml
 *.zip
-*.iml
 
 # virtual machine crash logs
 hs_err_pid*

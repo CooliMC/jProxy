@@ -26,8 +26,12 @@ public class DedicatedProxyServer
         this.running = new AtomicBoolean(true);
 
         //Try to setup the ServerSocket
-        try { this.serverSocket = new ServerSocket(port); }
-        catch(Exception e) { this.running.set(false); return; }
+        try {
+            this.serverSocket = new ServerSocket(port);
+        } catch(Exception e) {
+            this.running.set(false);
+            return;
+        }
 
         //Try to setup lists
         this.blockedSites = Collections.synchronizedSet(new HashSet<>());
@@ -50,8 +54,8 @@ public class DedicatedProxyServer
             while(running.get() && (serverSocket != null) && serverSocket.isBound())
             {
                 try { serviceThreads.add(new RequestHandler(serverSocket.accept())); }
-                catch(SocketTimeoutException e1) { /* Nothing to do here */}
-                catch(IOException e2) { e2.printStackTrace(); }
+                catch(SocketTimeoutException e1) { /* Nothing to do here */ }
+                catch (IOException e2) { e2.printStackTrace(); }
             }
         }).start();
     }
@@ -78,7 +82,7 @@ public class DedicatedProxyServer
         String tempLine;
 
         //Try to read or create blocked sites source
-        if (!blockedSitesSourceFile.exists())
+        if(!blockedSitesSourceFile.exists())
         {
             //Inform user
             System.out.println("No blocked sites source file found - creating new file");
@@ -122,10 +126,10 @@ public class DedicatedProxyServer
 
                     //Check for valid URL or IP
                     if(
-                        (tempLine.length() < 3) ||
-                        (tempLine.startsWith("#")) ||
-                        (tempLine.contains("localhost")) ||
-                        (tempLine.contains("127.0.0.1"))
+                            (tempLine.length() < 3) ||
+                                    (tempLine.startsWith("#")) ||
+                                    (tempLine.contains("localhost")) ||
+                                    (tempLine.contains("127.0.0.1"))
                     ) continue;
 
                     //Check for split domain with alternative ip
@@ -142,7 +146,7 @@ public class DedicatedProxyServer
 
                     this.blockedSites.add(tempLine);
                 }
-            } catch(Exception e1) {
+            } catch (Exception e1) {
                 /* Nothing to do here */
             }
         }
@@ -163,7 +167,7 @@ public class DedicatedProxyServer
         String tempLine;
 
         //Create a fileStream for file to list converting
-        try(BufferedReader fileReader  = new BufferedReader(new FileReader(sourceFile)))
+        try(BufferedReader fileReader = new BufferedReader(new FileReader(sourceFile)))
         {
             while((tempLine = fileReader.readLine()) != null)
             {
@@ -199,28 +203,15 @@ public class DedicatedProxyServer
                         System.out.println(tempUrl);
 
                     System.out.println();
-                }
-
-                else if(command.equals("clear"))
-                {
+                } else if(command.equals("clear")) {
                     System.out.println("\nCurrently Blocked Sites cleared");
-                }
-
-                else if(command.equals("connections"))
-                {
+                } else if(command.equals("connections")) {
                     System.out.println("\nCurrent Connection Count: " + serviceThreads.size() + " \n");
                     System.out.println();
-                }
-
-
-                else if(command.equals("close"))
-                {
+                } else if(command.equals("close")) {
                     running.set(false);
                     closeServer();
-                }
-
-                else if(command.length() > 3)
-                {
+                } else if(command.length() > 3) {
                     blockedSites.add(command);
                     System.out.println("\n" + command + " blocked successfully \n");
                 }
@@ -251,7 +242,7 @@ public class DedicatedProxyServer
                 //Setup input and output stream
                 this.proxyToClientInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 this.proxyToClientOutput = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            } catch (Exception e) {
+            } catch(Exception e) {
                 this.running.set(false);
             }
 
@@ -272,7 +263,7 @@ public class DedicatedProxyServer
                 if(this.isHttpsTunnel(request[0])) this.connectTunnel(request[1]);
                 else this.connectRelay(request[1]);
 
-            } catch (Exception e) {
+            } catch(Exception e) {
                 this.closeConnection(this.socket, null);
             }
         }
@@ -342,7 +333,7 @@ public class DedicatedProxyServer
 
                 this.closeConnection(this.socket, tempProxyToServer);
 
-            } catch(Exception e) {
+            } catch (Exception e) {
                 this.closeConnection(this.socket, null);
             }
         }
@@ -433,7 +424,7 @@ public class DedicatedProxyServer
 
                 this.proxyToClientOutput.flush();
                 this.proxyToClientOutput.close();
-            } catch (Exception e) {
+            } catch(Exception e) {
                 e.printStackTrace();
             }
         }
@@ -448,7 +439,7 @@ public class DedicatedProxyServer
                 );
 
                 this.proxyToClientOutput.flush();
-            } catch (Exception e) {
+            } catch(Exception e) {
                 e.printStackTrace();
             }
         }
@@ -463,7 +454,7 @@ public class DedicatedProxyServer
                 );
 
                 this.proxyToClientOutput.flush();
-            } catch (Exception e) {
+            } catch(Exception e) {
                 e.printStackTrace();
             }
         }
@@ -531,10 +522,11 @@ public class DedicatedProxyServer
                         try {
                             read = fromServer.read(buffer);
 
-                            if (read > 0) {
+                            if(read > 0)
+                            {
                                 toClient.write(buffer, 0, read);
 
-                                if (fromServer.available() < 1)
+                                if(fromServer.available() < 1)
                                     toClient.flush();
                             }
 
@@ -542,7 +534,7 @@ public class DedicatedProxyServer
                             /* Nothing to do here */
                         }
                     }
-                } catch (Exception e2) {
+                } catch(Exception e2) {
                     /* Nothing to do here */
                 }
 
