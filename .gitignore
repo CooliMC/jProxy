@@ -1,0 +1,17 @@
+# files that are blocked
+*.class
+*.log
+*.ctxt
+*.jar
+*.zip
+
+# virtual machine crash logs
+hs_err_pid*
+
+# paths and folders
+/.idea
+/target/*
+
+# Files
+blockedSitesList.txt
+blockedSitesSource.txt
