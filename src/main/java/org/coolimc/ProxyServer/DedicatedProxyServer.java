@@ -417,9 +417,9 @@ public class DedicatedProxyServer
         {
             try {
                 this.proxyToClientOutput.write(
-                    "HTTP/1.0 403 Access Forbidden \n" +
-                    "User-Agent: ProxyServer/1.0\n" +
-                    "\r\n"
+                        "HTTP/1.0 403 Access Forbidden \n" +
+                                "User-Agent: ProxyServer/1.0\n" +
+                                "\r\n"
                 );
 
                 this.proxyToClientOutput.flush();
@@ -433,9 +433,9 @@ public class DedicatedProxyServer
         {
             try {
                 this.proxyToClientOutput.write(
-                    "HTTP/1.0 404 NOT FOUND\n" +
-                    "Proxy-agent: ProxyServer/1.0\n" +
-                    "\r\n"
+                        "HTTP/1.0 404 NOT FOUND\n" +
+                                "Proxy-agent: ProxyServer/1.0\n" +
+                                "\r\n"
                 );
 
                 this.proxyToClientOutput.flush();
@@ -448,9 +448,9 @@ public class DedicatedProxyServer
         {
             try {
                 this.proxyToClientOutput.write(
-                    "HTTP/1.0 200 Connection established\r\n" +
-                    "Proxy-Agent: ProxyServer/1.0\r\n" +
-                    "\r\n"
+                        "HTTP/1.0 200 Connection established\r\n" +
+                                "Proxy-Agent: ProxyServer/1.0\r\n" +
+                                "\r\n"
                 );
 
                 this.proxyToClientOutput.flush();
@@ -463,9 +463,9 @@ public class DedicatedProxyServer
         {
             try {
                 this.proxyToClientOutput.write(
-                    "HTTP/1.0 200 OK\n" +
-                    "Proxy-agent: ProxyServer/1.0\n" +
-                    "\r\n"
+                        "HTTP/1.0 200 OK\n" +
+                                "Proxy-agent: ProxyServer/1.0\n" +
+                                "\r\n"
                 );
 
                 this.proxyToClientOutput.flush();
