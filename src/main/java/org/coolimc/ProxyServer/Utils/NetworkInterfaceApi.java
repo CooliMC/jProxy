@@ -1,4 +1,4 @@
-package org.coolimc.ProxyServer;
+package org.coolimc.ProxyServer.Utils;
 
 import com.sun.jna.Library;
 import com.sun.jna.Native;

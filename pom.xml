@@ -23,7 +23,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.coolimc.ProxyServer.DedicatedProxyServer</mainClass>
+                            <mainClass>org.coolimc.ProxyServer.HttpProxyServer</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

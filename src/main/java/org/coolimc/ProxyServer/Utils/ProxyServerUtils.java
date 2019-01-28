@@ -1,4 +1,4 @@
-package org.coolimc.ProxyServer;
+package org.coolimc.ProxyServer.Utils;
 
 public class ProxyServerUtils
 {

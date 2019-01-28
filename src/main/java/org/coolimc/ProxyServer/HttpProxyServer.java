@@ -5,11 +5,11 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class DedicatedProxyServer
+public class HttpProxyServer
 {
     public static void main(String[] args)
     {
-        DedicatedProxyServer myProxy = new DedicatedProxyServer(8085);
+        HttpProxyServer myProxy = new HttpProxyServer(8085);
         myProxy.listen();
     }
 
@@ -20,7 +20,7 @@ public class DedicatedProxyServer
     private List<String> blockedSource;
     private List<RequestHandler> serviceThreads;
 
-    public DedicatedProxyServer(int port)
+    public HttpProxyServer(int port)
     {
         //Setup status variable
         this.running = new AtomicBoolean(true);
