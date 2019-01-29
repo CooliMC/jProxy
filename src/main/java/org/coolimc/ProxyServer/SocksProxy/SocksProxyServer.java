@@ -1,4 +1,4 @@
-package org.coolimc.ProxyServer;
+package org.coolimc.ProxyServer.SocksProxy;
 
 import java.io.*;
 import java.net.*;
