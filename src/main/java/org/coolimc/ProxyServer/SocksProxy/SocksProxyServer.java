@@ -106,22 +106,17 @@ public class SocksProxyServer
         public void run()
         {
             try {
-                //Read the first line for more information about the request
-                System.out.println("Incoming request");
-                byte[] firstRead = new byte[this.proxyToClientInput.available()];
-                this.proxyToClientInput.read(firstRead);
-                System.out.println("Read bytes: " + firstRead.length);
+                //Read the initial call for more information
+                byte[] firstRead = this.readFromInputStream();
 
-                //byte[] firstRead = this.proxyToClientInput.readAllBytes();
-                System.out.println("Request1: " + Arrays.toString(firstRead));
                 //Check for corrupt packet length
                 if (firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
                     return;
 
                 //Check for corrupt packet header
                 if (
-                        (firstRead[0] != SocksVersion.Socks4.getIntCode()) &&
-                                (firstRead[0] != SocksVersion.Socks5.getIntCode())
+                    (firstRead[0] != SocksVersion.Socks4.getIntCode()) &&
+                    (firstRead[0] != SocksVersion.Socks5.getIntCode())
                 ) return;
 
                 //Check for Socks-Version5 and AuthPacket
@@ -135,8 +130,11 @@ public class SocksProxyServer
 
                     //Get all authFunctions from authRequest
                     byte[] authFunctions = Arrays.copyOfRange(
-                            firstRead, SocksProxyServer.DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH, realPacketLength
+                        firstRead, SocksProxyServer.DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH, realPacketLength
                     );
+
+                    //Check SocksServer for AuthMethods
+                    //TODO : CHECK CHECK
 
                     //Do a callback
                     this.proxyToClientOutput.write(ByteBuffer.allocate(2).put((byte) 0x05).put((byte) 0x02).array());
@@ -147,9 +145,7 @@ public class SocksProxyServer
                 {
                     if(this.proxyToClientInput.available() > 0)
                     {
-                        byte[] toRead = new byte[this.proxyToClientInput.available()];
-                        this.proxyToClientInput.read(toRead);
-
+                        byte[] toRead = this.readFromInputStream();
                         System.out.println("Request2: " + Arrays.toString(toRead));
                     }
                 }
@@ -191,6 +187,24 @@ public class SocksProxyServer
 
             //Remove from connectionList
             serviceThreads.remove(this);
+        }
+
+        private byte[] readFromInputStream()
+        {
+            try {
+                //Create new byte[] with length of bytes in buffer
+                byte[] toRet = new byte[this.proxyToClientInput.available()];
+
+                //Read all of these bytes into the byte[]
+                this.proxyToClientInput.read(toRet);
+
+                //Return given byte[]
+                return toRet;
+            } catch (Exception e) {
+                //Return empty byte[]
+                return (new byte[0]);
+            }
+
         }
     }
 }
