@@ -1,11 +1,8 @@
-package org.coolimc.ProxyServer.SocksProxy;
+package org.coolimc.ProxyServer;
 
-import javax.imageio.IIOException;
 import java.io.*;
 import java.net.*;
-import java.nio.ByteBuffer;
 import java.util.*;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SocksProxyServer
@@ -16,11 +13,6 @@ public class SocksProxyServer
         myProxy.listen();
     }
 
-    //Definitions
-    private static final int DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH = 3;
-    private static final int DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH = 2;
-
-    //Variables
     private ServerSocket serverSocket;
     private AtomicBoolean running;
 
@@ -78,8 +70,8 @@ public class SocksProxyServer
         private final AtomicBoolean running;
         private final Socket socket;
 
-        private DataInputStream proxyToClientInput;
-        private DataOutputStream proxyToClientOutput;
+        private InputStream proxyToClientInput;
+        private OutputStream proxyToClientOutput;
         private Thread clientToServer, serverToClient;
 
         private RequestHandler(Socket connectionSocket)
@@ -93,8 +85,8 @@ public class SocksProxyServer
                 this.socket.setSoTimeout(5000);
 
                 //Setup input and output stream
-                this.proxyToClientInput = new DataInputStream(socket.getInputStream());
-                this.proxyToClientOutput = new DataOutputStream(socket.getOutputStream());
+                this.proxyToClientInput = socket.getInputStream();
+                this.proxyToClientOutput = socket.getOutputStream();
             } catch(Exception e) {
                 this.running.set(false);
             }
@@ -107,54 +99,25 @@ public class SocksProxyServer
         {
             try {
                 //Read the first line for more information about the request
-                System.out.println("Incoming request");
-                byte[] firstRead = new byte[this.proxyToClientInput.available()];
-                this.proxyToClientInput.read(firstRead);
-                System.out.println("Read bytes: " + firstRead.length);
+                byte[] firstRead = this.proxyToClientInput.readAllBytes();
 
-                //byte[] firstRead = this.proxyToClientInput.readAllBytes();
-                System.out.println("Request1: " + Arrays.toString(firstRead));
-                //Check for corrupt packet length
-                if (firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
+                //Check for corrupt packets
+                if((firstRead.length < 3) || !((firstRead[0] == 0x04) || (firstRead[0] == 0x05)))
                     return;
 
-                //Check for corrupt packet header
-                if (
-                        (firstRead[0] != SocksVersion.Socks4.getIntCode()) &&
-                                (firstRead[0] != SocksVersion.Socks5.getIntCode())
-                ) return;
-
                 //Check for Socks-Version5 and AuthPacket
-                if (firstRead[0] == SocksVersion.Socks5.getIntCode()) {
-                    //Get int of packetLength
-                    int realPacketLength = (SocksProxyServer.DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH + firstRead[1]);
-
-                    //Check if packet size is corrupt
-                    if (firstRead.length < realPacketLength)
-                        return;
+                if(firstRead[0] == 0x05)
+                {
+                    //Check if packet corrupt
+                    if(firstRead.length < (2 + firstRead[1])) return;
 
                     //Get all authFunctions from authRequest
-                    byte[] authFunctions = Arrays.copyOfRange(
-                            firstRead, SocksProxyServer.DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH, realPacketLength
-                    );
+                    byte[] authFunctions = Arrays.copyOfRange(firstRead, 2, firstRead[1]);
 
-                    //Do a callback
-                    this.proxyToClientOutput.write(ByteBuffer.allocate(2).put((byte) 0x05).put((byte) 0x02).array());
-                    this.proxyToClientOutput.flush();
+
                 }
 
-                while(!socket.isClosed())
-                {
-                    if(this.proxyToClientInput.available() > 0)
-                    {
-                        byte[] toRead = new byte[this.proxyToClientInput.available()];
-                        this.proxyToClientInput.read(toRead);
-
-                        System.out.println("Request2: " + Arrays.toString(toRead));
-                    }
-                }
-
-                System.out.println("Ende Request");
+                System.out.println("Request: " + Arrays.toString(firstRead));
                 //Check for the right header length
                 //if(request.length < 3) return;
 
@@ -162,10 +125,7 @@ public class SocksProxyServer
                 //if(this.isHttpsTunnel(request[0])) this.connectTunnel(request[1]);
                 //else this.connectRelay(request[1]);
 
-            } catch(SocketTimeoutException e1) {
-                /* Nothing to do here */
-            } catch(Exception e2) {
-                e2.printStackTrace();
+            } catch(Exception e) {
                 this.closeConnection(this.socket, null);
             }
         }
