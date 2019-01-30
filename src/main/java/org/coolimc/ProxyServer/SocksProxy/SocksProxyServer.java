@@ -1,18 +1,23 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
-import javax.imageio.IIOException;
 import java.io.*;
 import java.net.*;
-import java.nio.ByteBuffer;
+import java.nio.*;
 import java.util.*;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SocksProxyServer
 {
     public static void main(String[] args)
     {
+        //Setup testProxy
         SocksProxyServer myProxy = new SocksProxyServer(1080);
+
+        //Enable AuthenticationMethods
+        myProxy.enableAuthenticationMethod(AuthenticationMethod.NO_AUTHENTICATION_REQUIRED);
+        myProxy.enableAuthenticationMethod(AuthenticationMethod.USERNAME_PASSWORD);
+
+        //Start the Server
         myProxy.listen();
     }
 
@@ -25,6 +30,7 @@ public class SocksProxyServer
     private AtomicBoolean running;
 
     private List<RequestHandler> serviceThreads;
+    private Set<AuthenticationMethod> authenticationMethods;
 
     public SocksProxyServer(int port)
     {
@@ -41,6 +47,7 @@ public class SocksProxyServer
 
         //Try to setup lists
         this.serviceThreads = Collections.synchronizedList(new ArrayList<>());
+        this.authenticationMethods = Collections.synchronizedSet(new HashSet<>());
 
         //User callback about status
         System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + " ...");
@@ -58,7 +65,24 @@ public class SocksProxyServer
         }).start();
     }
 
-    private void closeServer()
+    public void enableAuthenticationMethod(AuthenticationMethod toActivate)
+    {
+        //Server only supports these two methods at the time
+        if(
+            (toActivate == AuthenticationMethod.NO_AUTHENTICATION_REQUIRED) ||
+            (toActivate == AuthenticationMethod.USERNAME_PASSWORD)
+        ) this.authenticationMethods.add(toActivate);
+
+        //Inform about no compatibility
+        else System.out.println("AuthenticationMethod not supported by the server.");
+    }
+
+    public void disableAuthenticationMethod(AuthenticationMethod toDeactivate)
+    {
+        this.authenticationMethods.remove(toDeactivate);
+    }
+
+    public void closeServer()
     {
         //Close by variable
         System.out.println("\nClosing Server..");
@@ -71,6 +95,22 @@ public class SocksProxyServer
         //Close serverSocket
         try { this.serverSocket.close(); }
         catch(Exception e) { /* Nothing to do here */ }
+    }
+
+    private byte isAuthSupported(byte[] toCheck)
+    {
+        //Loop through all client and server supported AuthenticationMethods and check for a match
+        for(byte tempClientAuth : toCheck)
+        {
+            for (AuthenticationMethod tempServerAuth : authenticationMethods)
+            {
+                if (tempServerAuth.getByteCode() == tempClientAuth)
+                    return tempClientAuth;
+            }
+        }
+
+        //If there is no supported method return noAcceptableMethod
+        return AuthenticationMethod.NO_ACCEPTABLE_METHODS.getByteCode();
     }
 
     private final class RequestHandler extends Thread
@@ -128,25 +168,46 @@ public class SocksProxyServer
                     if (firstRead.length < realPacketLength)
                         return;
 
-                    //Get all authFunctions from authRequest
-                    byte[] authFunctions = Arrays.copyOfRange(
+                    //Get all authFunctions from authRequest and check SocksServer for AuthMethods
+                    byte serverAcceptedAuth = isAuthSupported(Arrays.copyOfRange(
                         firstRead, SocksProxyServer.DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH, realPacketLength
-                    );
+                    ));
 
-                    //Check SocksServer for AuthMethods
-                    //TODO : CHECK CHECK
+                    //Build the serverAuthAnswer
+                    byte[] serverAuthAnswer = {
+                        SocksVersion.Socks5.getByteCode(),
+                        serverAcceptedAuth
+                    };
 
-                    //Do a callback
-                    this.proxyToClientOutput.write(ByteBuffer.allocate(2).put((byte) 0x05).put((byte) 0x02).array());
+                    //Send the answer to the client
+                    this.proxyToClientOutput.write(serverAuthAnswer);
                     this.proxyToClientOutput.flush();
+
+                    //Check for rejection
+                    if(serverAcceptedAuth == AuthenticationMethod.NO_ACCEPTABLE_METHODS.getByteCode())
+                    {
+                        this.closeConnection(this.socket, null);
+                        return;
+                    }
+
+                    //Check for usernameAndPassword
+                    if(serverAcceptedAuth == AuthenticationMethod.USERNAME_PASSWORD.getByteCode())
+                    {
+                        //Wait for login packet with username and password
+                        byte[] authPaket = this.readFromInputStream();
+
+                        System.out.println("Incoming AuthPaket: " + Arrays.toString(authPaket));
+                    }
                 }
+
+                System.out.println("Server ready to get sock connection packets");
 
                 while(!socket.isClosed())
                 {
                     if(this.proxyToClientInput.available() > 0)
                     {
                         byte[] toRead = this.readFromInputStream();
-                        System.out.println("Request2: " + Arrays.toString(toRead));
+                        System.out.println("Request: " + Arrays.toString(toRead));
                     }
                 }
 
