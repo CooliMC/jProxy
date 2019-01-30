@@ -186,18 +186,43 @@ public class SocksProxyServer
 
                     //Check for rejection
                     if(serverAcceptedAuth == AuthenticationMethod.NO_ACCEPTABLE_METHODS.getByteCode())
-                    {
+                    {System.out.println("Close connection no acceptable auth.");
                         this.closeConnection(this.socket, null);
                         return;
                     }
 
                     //Check for usernameAndPassword
                     if(serverAcceptedAuth == AuthenticationMethod.USERNAME_PASSWORD.getByteCode())
-                    {System.out.println("Wait for incoming auth....");
+                    {//System.out.println("Wait for incoming auth....");
                         //Wait for login packet with username and password
                         byte[] authPaket = this.readFromInputStream(DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
 
+                        //Check for supportedSubversion
+                        if(authPaket[0] != 0x01)
+                            return;
+
+                        //Check for corrupt packet header
+                        if(authPaket.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
+                            return;
+
+                        //Extract username and password length
+                        int usernameLength = authPaket[1];
+                        int passwordLength = authPaket[2+ usernameLength];
+
+                        //Check for correct packet size
+                        if((SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH + usernameLength + passwordLength) != authPaket.length)
+                            return;
+
+                        //Extract username and password string
+                        String username = ((usernameLength > 0) ? new String(Arrays.copyOfRange(
+                            authPaket, 2, (2 + usernameLength)
+                        )) : "");
+                        String password = ((passwordLength > 0) ? new String(Arrays.copyOfRange(
+                            authPaket, (4 + usernameLength), (4 + usernameLength + passwordLength)
+                        )) : "");
+
                         System.out.println("Incoming AuthPaket: " + Arrays.toString(authPaket));
+                        System.out.println("Username: " + username + " | Password: " + password);
                     }
                 }
 
