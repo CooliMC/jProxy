@@ -17,7 +17,8 @@ public class SocksProxyServer
         myProxy.enableAuthenticationMethod(AuthenticationMethod.USERNAME_PASSWORD);
 
         //Add UserProfiles
-        myProxy.userProfiles.put("CooliMC", "345678");
+        myProxy.addUserProfile("CooliMC", "345678");
+        myProxy.addUserProfile("Kanisterkopf", "MC-Donalds");
 
         //Start the Server
         myProxy.listen();
@@ -42,12 +43,8 @@ public class SocksProxyServer
         this.running = new AtomicBoolean(true);
 
         //Try to setup the ServerSocket
-        try {
-            this.serverSocket = new ServerSocket(port);
-        } catch(Exception e) {
-            this.running.set(false);
-            return;
-        }
+        try { this.serverSocket = new ServerSocket(port); }
+        catch(Exception e) { this.running.set(false); return; }
 
         //Try to setup lists
         this.serviceThreads = Collections.synchronizedList(new ArrayList<>());
@@ -87,6 +84,16 @@ public class SocksProxyServer
         this.authenticationMethods.remove(toDeactivate);
     }
 
+    public void addUserProfile(String username, String password)
+    {
+        this.userProfiles.put(username, ((password != null) ? password : ""));
+    }
+
+    public void removeUserProfile(String username)
+    {
+        this.userProfiles.remove(username);
+    }
+
     public void closeServer()
     {
         //Close by variable
@@ -107,9 +114,9 @@ public class SocksProxyServer
         //Loop through all client and server supported AuthenticationMethods and check for a match
         for(byte tempClientAuth : toCheck)
         {
-            for (AuthenticationMethod tempServerAuth : authenticationMethods)
+            for(AuthenticationMethod tempServerAuth : authenticationMethods)
             {
-                if (tempServerAuth.getByteCode() == tempClientAuth)
+                if(tempServerAuth.getByteCode() == tempClientAuth)
                     return tempClientAuth;
             }
         }
@@ -121,7 +128,7 @@ public class SocksProxyServer
     private boolean checkCredentials(String username, String password)
     {
         String result = this.userProfiles.get(username);
-        return (result != null) && (result.equals(password));
+        return ((result != null) && result.equals(password));
     }
 
     private final class RequestHandler extends Thread
@@ -161,17 +168,18 @@ public class SocksProxyServer
                 byte[] firstRead = this.readFromInputStream();
                 System.out.println("Incoming Request: " + Arrays.toString(firstRead));
                 //Check for corrupt packet length
-                if (firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
+                if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
                     return;
 
                 //Check for corrupt packet header
-                if (
+                if(
                     (firstRead[0] != SocksVersion.Socks4.getIntCode()) &&
                     (firstRead[0] != SocksVersion.Socks5.getIntCode())
                 ) return;
 
                 //Check for Socks-Version5 and AuthPacket
-                if (firstRead[0] == SocksVersion.Socks5.getIntCode()) {
+                if(firstRead[0] == SocksVersion.Socks5.getIntCode())
+                {
                     //Get int of packetLength
                     int realPacketLength = (SocksProxyServer.DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH + firstRead[1]);
 
