@@ -2,7 +2,6 @@ package org.coolimc.ProxyServer.SocksProxy;
 
 import java.io.*;
 import java.net.*;
-import java.nio.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -16,6 +15,9 @@ public class SocksProxyServer
         //Enable AuthenticationMethods
         myProxy.enableAuthenticationMethod(AuthenticationMethod.NO_AUTHENTICATION_REQUIRED);
         myProxy.enableAuthenticationMethod(AuthenticationMethod.USERNAME_PASSWORD);
+
+        //Add UserProfiles
+        myProxy.userProfiles.put("CooliMC", "345678");
 
         //Start the Server
         myProxy.listen();
@@ -32,6 +34,7 @@ public class SocksProxyServer
 
     private List<RequestHandler> serviceThreads;
     private Set<AuthenticationMethod> authenticationMethods;
+    private Map<String, String> userProfiles;
 
     public SocksProxyServer(int port)
     {
@@ -49,6 +52,7 @@ public class SocksProxyServer
         //Try to setup lists
         this.serviceThreads = Collections.synchronizedList(new ArrayList<>());
         this.authenticationMethods = Collections.synchronizedSet(new HashSet<>());
+        this.userProfiles = Collections.synchronizedMap(new HashMap<>());
 
         //User callback about status
         System.out.println("Waiting for client on port " + serverSocket.getLocalPort() + " ...");
@@ -112,6 +116,12 @@ public class SocksProxyServer
 
         //If there is no supported method return noAcceptableMethod
         return AuthenticationMethod.NO_ACCEPTABLE_METHODS.getByteCode();
+    }
+
+    private boolean checkCredentials(String username, String password)
+    {
+        String result = this.userProfiles.get(username);
+        return (result != null) && (result.equals(password));
     }
 
     private final class RequestHandler extends Thread
@@ -193,36 +203,49 @@ public class SocksProxyServer
 
                     //Check for usernameAndPassword
                     if(serverAcceptedAuth == AuthenticationMethod.USERNAME_PASSWORD.getByteCode())
-                    {//System.out.println("Wait for incoming auth....");
+                    {
                         //Wait for login packet with username and password
-                        byte[] authPaket = this.readFromInputStream(DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
+                        byte[] authPacket = this.readFromInputStream(DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
 
                         //Check for supportedSubversion
-                        if(authPaket[0] != 0x01)
+                        if(authPacket[0] != 0x01)
                             return;
 
                         //Check for corrupt packet header
-                        if(authPaket.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
+                        if(authPacket.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
                             return;
 
                         //Extract username and password length
-                        int usernameLength = authPaket[1];
-                        int passwordLength = authPaket[2+ usernameLength];
+                        int usernameLength = authPacket[1];
+                        int passwordLength = authPacket[2+ usernameLength];
 
                         //Check for correct packet size
-                        if((SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH + usernameLength + passwordLength) != authPaket.length)
+                        if((SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH + usernameLength + passwordLength) != authPacket.length)
                             return;
 
                         //Extract username and password string
                         String username = ((usernameLength > 0) ? new String(Arrays.copyOfRange(
-                            authPaket, 2, (2 + usernameLength)
+                            authPacket, 2, (2 + usernameLength)
                         )) : "");
                         String password = ((passwordLength > 0) ? new String(Arrays.copyOfRange(
-                            authPaket, (4 + usernameLength), (4 + usernameLength + passwordLength)
+                            authPacket, (3 + usernameLength), (3 + usernameLength + passwordLength)
                         )) : "");
 
-                        System.out.println("Incoming AuthPaket: " + Arrays.toString(authPaket));
-                        System.out.println("Username: " + username + " | Password: " + password);
+                        //Build the answer for the client
+                        byte[] authAnswer = {0x01, ((byte) (checkCredentials(username, password) ? 0x00 : 0x01))};
+
+                        //Send the answer to the client
+                        this.proxyToClientOutput.write(authAnswer);
+                        this.proxyToClientOutput.flush();
+
+                        //Check for false credential and disconnect
+                        if(authAnswer[1] != 0x00)
+                        {
+                            System.out.println("Wrong Login - Disconnecting");
+
+                            this.closeConnection(this.socket, null);
+                            return;
+                        }
                     }
                 }
 
