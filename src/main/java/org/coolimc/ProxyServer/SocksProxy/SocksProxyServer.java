@@ -24,6 +24,7 @@ public class SocksProxyServer
     //Definitions
     private static final int DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH = 3;
     private static final int DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH = 2;
+    private static final int DEFAULT_SOCKS5_AUTH_TIMEOUT_MS = 2500;
 
     //Variables
     private ServerSocket serverSocket;
@@ -148,7 +149,7 @@ public class SocksProxyServer
             try {
                 //Read the initial call for more information
                 byte[] firstRead = this.readFromInputStream();
-
+                System.out.println("Incoming Request: " + Arrays.toString(firstRead));
                 //Check for corrupt packet length
                 if (firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
                     return;
@@ -192,9 +193,9 @@ public class SocksProxyServer
 
                     //Check for usernameAndPassword
                     if(serverAcceptedAuth == AuthenticationMethod.USERNAME_PASSWORD.getByteCode())
-                    {
+                    {System.out.println("Wait for incoming auth....");
                         //Wait for login packet with username and password
-                        byte[] authPaket = this.readFromInputStream();
+                        byte[] authPaket = this.readFromInputStream(DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
 
                         System.out.println("Incoming AuthPaket: " + Arrays.toString(authPaket));
                     }
@@ -250,22 +251,37 @@ public class SocksProxyServer
             serviceThreads.remove(this);
         }
 
-        private byte[] readFromInputStream()
+        private byte[] readFromInputStream() throws IOException
         {
-            try {
-                //Create new byte[] with length of bytes in buffer
-                byte[] toRet = new byte[this.proxyToClientInput.available()];
+            //Create new byte[] with length of bytes in buffer
+            byte[] toRet = new byte[this.proxyToClientInput.available()];
 
-                //Read all of these bytes into the byte[]
-                this.proxyToClientInput.read(toRet);
+            //Read all of these bytes into the byte[]
+            this.proxyToClientInput.read(toRet);
 
-                //Return given byte[]
-                return toRet;
-            } catch (Exception e) {
-                //Return empty byte[]
-                return (new byte[0]);
+            //Return given byte[]
+            return toRet;
+        }
+
+        private byte[] readFromInputStream(int timeout) throws IOException
+        {
+            //Setup method tempVariables
+            long tempTime = (System.currentTimeMillis() + timeout);
+            byte[] toRet = this.readFromInputStream();
+
+            //Check for input as long as wanted (with timeout)
+            while(toRet.length == 0)
+            {
+                //Check for timeout
+                if((timeout > 0) || (tempTime <= System.currentTimeMillis()))
+                    throw new SocketTimeoutException("Read timed out");
+
+                //If there is no timeout check for new data
+                toRet = this.readFromInputStream();
             }
 
+            //Return the result
+            return toRet;
         }
     }
 }
