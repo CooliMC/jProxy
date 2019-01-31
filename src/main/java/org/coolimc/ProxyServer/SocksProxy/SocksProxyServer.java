@@ -28,6 +28,8 @@ public class SocksProxyServer
     private static final int DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH = 3;
     private static final int DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH = 2;
     private static final int DEFAULT_SOCKS5_AUTH_TIMEOUT_MS = 2500;
+    private static final int DEFAULT_SOCKS4_HEADER_LENGTH = 9;
+    private static final int DEFAULT_SOCKS5_HEADER_LENGTH = 8;
 
     //Variables
     private ServerSocket serverSocket;
@@ -274,9 +276,17 @@ public class SocksProxyServer
                 //Check if it's a Socks5 or Socks4 Request
                 if(firstRead[0] == SocksVersion.Socks5.getByteCode())
                 {
+                    //Check for corrupt packet length
+                    if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_HEADER_LENGTH)
+                        return;
+
 
                 } else {
-                    
+                    //Check for corrupt packet length
+                    if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS4_HEADER_LENGTH)
+                        return;
+
+
                 }
 
                 System.out.println("Ende Request");
@@ -293,6 +303,9 @@ public class SocksProxyServer
                 e2.printStackTrace();
                 this.closeConnection(this.socket, null);
             }
+
+            //Remove from RequestHandler List
+            serviceThreads.remove(this);
         }
 
         private void closeConnection(Socket toClose1, Socket toClose2)
