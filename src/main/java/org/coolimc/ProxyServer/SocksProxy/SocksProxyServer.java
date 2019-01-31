@@ -255,17 +255,28 @@ public class SocksProxyServer
                             return;
                         }
                     }
+
+                    //Read next data packet for "normal" socks packet
+                    firstRead = this.readFromInputStream(SocksProxyServer.DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
+                    System.out.println("Incoming Request2: " + Arrays.toString(firstRead));
+
+                    //Check for corrupt packet length
+                    if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH)
+                        return;
+
+                    //Check for corrupt packet header
+                    if(
+                        (firstRead[0] != SocksVersion.Socks4.getIntCode()) &&
+                        (firstRead[0] != SocksVersion.Socks5.getIntCode())
+                    ) return;
                 }
 
-                System.out.println("Server ready to get sock connection packets");
-
-                while(!socket.isClosed())
+                //Check if it's a Socks5 or Socks4 Request
+                if(firstRead[0] == SocksVersion.Socks5.getByteCode())
                 {
-                    if(this.proxyToClientInput.available() > 0)
-                    {
-                        byte[] toRead = this.readFromInputStream();
-                        System.out.println("Request: " + Arrays.toString(toRead));
-                    }
+
+                } else {
+                    
                 }
 
                 System.out.println("Ende Request");
