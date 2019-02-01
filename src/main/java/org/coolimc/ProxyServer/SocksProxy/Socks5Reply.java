@@ -1,6 +1,6 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
-public enum ReplyMethod
+public enum Socks5Reply
 {
     SUCCEEDED(0x00),
     SOCKS_SERVER_FAILURE(0x01),
@@ -14,7 +14,7 @@ public enum ReplyMethod
 
     private final int byteCode;
 
-    ReplyMethod(int code)
+    Socks5Reply(int code)
     {
         this.byteCode = code;
     }

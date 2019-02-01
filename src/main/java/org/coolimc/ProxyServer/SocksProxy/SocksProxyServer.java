@@ -1,6 +1,7 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -13,8 +14,8 @@ public class SocksProxyServer
         SocksProxyServer myProxy = new SocksProxyServer(1080);
 
         //Enable AuthenticationMethods
-        myProxy.enableAuthenticationMethod(AuthenticationMethod.NO_AUTHENTICATION_REQUIRED);
-        myProxy.enableAuthenticationMethod(AuthenticationMethod.USERNAME_PASSWORD);
+        myProxy.enableAuthenticationMethod(Socks5Authentication.NO_AUTHENTICATION_REQUIRED);
+        myProxy.enableAuthenticationMethod(Socks5Authentication.USERNAME_PASSWORD);
 
         //Add UserProfiles
         myProxy.addUserProfile("CooliMC", "345678");
@@ -36,7 +37,7 @@ public class SocksProxyServer
     private AtomicBoolean running;
 
     private List<RequestHandler> serviceThreads;
-    private Set<AuthenticationMethod> authenticationMethods;
+    private Set<Socks5Authentication> authenticationMethods;
     private Map<String, String> userProfiles;
 
     public SocksProxyServer(int port)
@@ -69,19 +70,19 @@ public class SocksProxyServer
         }).start();
     }
 
-    public void enableAuthenticationMethod(AuthenticationMethod toActivate)
+    public void enableAuthenticationMethod(Socks5Authentication toActivate)
     {
         //Server only supports these two methods at the time
         if(
-            (toActivate == AuthenticationMethod.NO_AUTHENTICATION_REQUIRED) ||
-            (toActivate == AuthenticationMethod.USERNAME_PASSWORD)
+            (toActivate == Socks5Authentication.NO_AUTHENTICATION_REQUIRED) ||
+            (toActivate == Socks5Authentication.USERNAME_PASSWORD)
         ) this.authenticationMethods.add(toActivate);
 
         //Inform about no compatibility
         else System.out.println("AuthenticationMethod not supported by the server.");
     }
 
-    public void disableAuthenticationMethod(AuthenticationMethod toDeactivate)
+    public void disableAuthenticationMethod(Socks5Authentication toDeactivate)
     {
         this.authenticationMethods.remove(toDeactivate);
     }
@@ -116,7 +117,7 @@ public class SocksProxyServer
         //Loop through all client and server supported AuthenticationMethods and check for a match
         for(byte tempClientAuth : toCheck)
         {
-            for(AuthenticationMethod tempServerAuth : authenticationMethods)
+            for(Socks5Authentication tempServerAuth : authenticationMethods)
             {
                 if(tempServerAuth.getByteCode() == tempClientAuth)
                     return tempClientAuth;
@@ -124,7 +125,7 @@ public class SocksProxyServer
         }
 
         //If there is no supported method return noAcceptableMethod
-        return AuthenticationMethod.NO_ACCEPTABLE_METHODS.getByteCode();
+        return Socks5Authentication.NO_ACCEPTABLE_METHODS.getByteCode();
     }
 
     private boolean checkCredentials(String username, String password)
@@ -205,14 +206,14 @@ public class SocksProxyServer
                     this.proxyToClientOutput.flush();
 
                     //Check for rejection
-                    if(serverAcceptedAuth == AuthenticationMethod.NO_ACCEPTABLE_METHODS.getByteCode())
+                    if(serverAcceptedAuth == Socks5Authentication.NO_ACCEPTABLE_METHODS.getByteCode())
                     {System.out.println("Close connection no acceptable auth.");
                         this.closeConnection(this.socket, null);
                         return;
                     }
 
                     //Check for usernameAndPassword
-                    if(serverAcceptedAuth == AuthenticationMethod.USERNAME_PASSWORD.getByteCode())
+                    if(serverAcceptedAuth == Socks5Authentication.USERNAME_PASSWORD.getByteCode())
                     {
                         //Wait for login packet with username and password
                         byte[] authPacket = this.readFromInputStream(DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
@@ -273,6 +274,13 @@ public class SocksProxyServer
                     ) return;
                 }
 
+                //Check for valid command flag
+                if(
+                    (firstRead[1] != SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode()) &&
+                    (firstRead[1] != SocksCommand.ESTABLISH_TCP_PORT_SERVER.getIntCode()) &&
+                    (firstRead[1] != SocksCommand.ESTABLISH_UDP_CONNECTION.getIntCode())
+                ) return;
+
                 //Check if it's a Socks5 or Socks4 Request
                 if(firstRead[0] == SocksVersion.Socks5.getByteCode())
                 {
@@ -280,13 +288,46 @@ public class SocksProxyServer
                     if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_HEADER_LENGTH)
                         return;
 
+                    //Check command flag if it's a tcp-connection or tcp-server or udp-connection
+                    if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
+                    {
+
+                    } else if(firstRead[1] == SocksCommand.ESTABLISH_TCP_PORT_SERVER.getIntCode()) {
+
+                    } else {
+
+                    }
 
                 } else {
                     //Check for corrupt packet length
                     if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS4_HEADER_LENGTH)
                         return;
 
+                    //Check for valid command flag
+                    if(firstRead[1] == SocksCommand.ESTABLISH_UDP_CONNECTION.getIntCode())
+                    {
+                        System.out.println("UDP-Connection Proxy not support in Socks4.");
 
+                        this.closeConnection(this.socket, null);
+                        return;
+                    }
+
+                    //Get different Fields
+                    byte[] destPort = Arrays.copyOfRange(firstRead, 2, 4);
+                    byte[] destAddr = Arrays.copyOfRange(firstRead, 4, 8);
+                    byte[] readRest = Arrays.copyOfRange(firstRead, 8, firstRead.length);
+                    byte[] userIdent, domainName;
+
+                    //Check
+
+
+                    //Check command flag if it's a tcp-connection or tcp-server
+                    if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
+                    {
+
+                    } else {
+
+                    }
                 }
 
                 System.out.println("Ende Request");

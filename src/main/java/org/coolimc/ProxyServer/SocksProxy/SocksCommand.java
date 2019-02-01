@@ -1,15 +1,14 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
-public enum AuthenticationMethod
+public enum SocksCommand
 {
-    NO_AUTHENTICATION_REQUIRED(0x00),
-    GSS_API(0x01),
-    USERNAME_PASSWORD(0x02),
-    NO_ACCEPTABLE_METHODS(0xFF);
+    ESTABLISH_TCP_CONNECTION(0x01),
+    ESTABLISH_TCP_PORT_SERVER(0x02),
+    ESTABLISH_UDP_CONNECTION(0x03);
 
     private final int byteCode;
 
-    AuthenticationMethod(int code)
+    SocksCommand(int code)
     {
         this.byteCode = code;
     }
