@@ -1,7 +1,6 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -312,13 +311,25 @@ public class SocksProxyServer
                         return;
                     }
 
+                    //Check if last byte is termination byte
+                    if(firstRead[firstRead.length - 1] != 0x00)
+                        return;
+
                     //Get different Fields
+                    byte[] readRest = Arrays.copyOfRange(firstRead, 8, (firstRead.length - 1));
                     byte[] destPort = Arrays.copyOfRange(firstRead, 2, 4);
                     byte[] destAddr = Arrays.copyOfRange(firstRead, 4, 8);
-                    byte[] readRest = Arrays.copyOfRange(firstRead, 8, firstRead.length);
-                    byte[] userIdent, domainName;
 
-                    //Check
+                    //Get CutByte
+                    int cutByte = this.indexOf(readRest, (byte) 0x00);
+
+                    //Check if there is a corrupt header
+                    if(cutByte >= 0)
+                        return;
+
+                    //Get the rest of the fields
+                    byte[] domainName = Arrays.copyOfRange(readRest, (cutByte + 1), readRest.length);
+                    byte[] userIdent = Arrays.copyOfRange(readRest, 0, cutByte);
 
 
                     //Check command flag if it's a tcp-connection or tcp-server
@@ -403,6 +414,19 @@ public class SocksProxyServer
 
             //Return the result
             return toRet;
+        }
+
+        private int indexOf(byte[] toCheck, byte toSearch)
+        {
+            for(int tempIndex = 0; tempIndex < toCheck.length; tempIndex++)
+            {
+                if(toCheck[tempIndex] == toSearch)
+                {
+                    return tempIndex;
+                }
+            }
+
+            return -1;
         }
     }
 }
