@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SocksProxyServer
 {
     public static void main(String[] args)
-    {
+    {System.out.println(Arrays.toString(Arrays.copyOfRange(new int[]{1,2,3,4}, 4,4)));
         //Setup testProxy
         SocksProxyServer myProxy = new SocksProxyServer(1080);
 
@@ -319,18 +319,31 @@ public class SocksProxyServer
                     byte[] readRest = Arrays.copyOfRange(firstRead, 8, (firstRead.length - 1));
                     byte[] destPort = Arrays.copyOfRange(firstRead, 2, 4);
                     byte[] destAddr = Arrays.copyOfRange(firstRead, 4, 8);
+                    byte[] userIdent, domainName;
 
                     //Get CutByte
                     int cutByte = this.indexOf(readRest, (byte) 0x00);
 
-                    //Check if there is a corrupt header
+                    //Check if there is a corrupt header and get the rest
                     if(cutByte >= 0)
-                        return;
+                    {
+                        domainName = Arrays.copyOfRange(readRest, (cutByte + 1), readRest.length);
+                        userIdent = Arrays.copyOf(readRest, cutByte);
+                    } else {
+                        domainName = new byte[0];
+                        userIdent = readRest;
+                    }
 
-                    //Get the rest of the fields
-                    byte[] domainName = Arrays.copyOfRange(readRest, (cutByte + 1), readRest.length);
-                    byte[] userIdent = Arrays.copyOfRange(readRest, 0, cutByte);
+                    //Get destination port and address
+                    int destinationPort = this.calcPort(destAddr[0], destPort[1]);
 
+                    //Check if its a normal ip4 or a domain
+                    if(destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00)
+                    {
+                        new String(domainName);
+                    } else { //TODO: NICEJPIWFJO
+                        new String(destAddr[0] + "." + destAddr[1] + "." + destAddr[2] + "." + destAddr[3]);
+                    }
 
                     //Check command flag if it's a tcp-connection or tcp-server
                     if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
@@ -414,6 +427,11 @@ public class SocksProxyServer
 
             //Return the result
             return toRet;
+        }
+
+        private int calcPort(byte hByte, byte lByte)
+        {
+            return ((hByte * 256) + lByte);
         }
 
         private int indexOf(byte[] toCheck, byte toSearch)
