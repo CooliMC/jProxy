@@ -333,18 +333,6 @@ public class SocksProxyServer
                         domainName = new byte[0];
                         userIdent = readRest;
                     }
-<<<<<<< HEAD
-
-                    //Get destination port and address
-                    int destinationPort = this.calcPort(destAddr[0], destPort[1]);
-
-                    //Check if its a normal ip4 or a domain
-                    if(destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00)
-                    {
-                        new String(domainName);
-                    } else {
-
-=======
 
                     //Get destination port and address
                     int destinationPort = this.calcPort(destAddr[0], destPort[1]);
@@ -355,7 +343,6 @@ public class SocksProxyServer
                         new String(domainName);
                     } else { //TODO: NICEJPIWFJO
                         new String(destAddr[0] + "." + destAddr[1] + "." + destAddr[2] + "." + destAddr[3]);
->>>>>>> 9ebe61be131e2eaf2fd08129e608c6c665e1a8c8
                     }
 
                     //Check command flag if it's a tcp-connection or tcp-server
