@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SocksProxyServer
 {
     public static void main(String[] args)
-    {System.out.println(Arrays.toString(Arrays.copyOfRange(new int[]{1,2,3,4}, 4,4)));
+    {
         //Setup testProxy
         SocksProxyServer myProxy = new SocksProxyServer(1080);
 
@@ -338,12 +338,13 @@ public class SocksProxyServer
                     int destinationPort = this.calcPort(destAddr[0], destPort[1]);
 
                     //Check if its a normal ip4 or a domain
-                    if(destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00)
-                    {
-                        new String(domainName);
-                    } else { //TODO: NICEJPIWFJO
-                        new String(destAddr[0] + "." + destAddr[1] + "." + destAddr[2] + "." + destAddr[3]);
-                    }
+                   String destinationAddress = (
+                        (destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00) ?
+                            (new String(domainName)) :
+                            (destAddr[0] + "." + destAddr[1] + "." + destAddr[2] + "." + destAddr[3])
+                   );
+
+                   System.out.println("Connecting to: " + destinationAddress + ":" + destinationPort);
 
                     //Check command flag if it's a tcp-connection or tcp-server
                     if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
@@ -432,6 +433,11 @@ public class SocksProxyServer
         private int calcPort(byte hByte, byte lByte)
         {
             return ((hByte * 256) + lByte);
+        }
+
+        private int getUnsignedInt(byte data)
+        {
+            return ((data < 0) ? (256 + data) : data);
         }
 
         private int indexOf(byte[] toCheck, byte toSearch)
