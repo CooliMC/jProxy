@@ -1,5 +1,7 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
+import org.coolimc.ProxyServer.ProxyUtils.Utils;
+
 import java.io.*;
 import java.net.*;
 import java.util.*;
@@ -144,10 +146,10 @@ public class SocksProxyServer
         return Socks5Authentication.NO_ACCEPTABLE_METHODS.getByteCode();
     }
 
-    private boolean isConnectionModeSupported(byte toCheck)
+    private boolean isConnectionModeSupported(SocksCommand toCheck)
     {
         //Loop through all server supported ConnectionModes and check for a match
-        return this.connectionModes.contains(SocksCommand.valueOf(toCheck));
+        return this.connectionModes.contains(toCheck);
     }
 
     private boolean checkCredentials(String username, String password)
@@ -345,7 +347,7 @@ public class SocksProxyServer
                     byte[] userIdent, domainName;
 
                     //Get CutByte
-                    int cutByte = this.indexOf(readRest, (byte) 0x00);
+                    int cutByte = Utils.indexOf(readRest, (byte) 0x00);
 
                     //Check if there is a corrupt header and get the rest
                     if(cutByte >= 0)
@@ -358,23 +360,87 @@ public class SocksProxyServer
                     }
 
                     //Get destination port and address
-                    int destinationPort = this.calcPort(destPort[0], destPort[1]);
+                    int destinationPort = Utils.calcPort(destPort[0], destPort[1]);
 
                     //Check if its a normal ip4 or a domain
-                    String destinationAddress = (
+                    InetAddress destinationAddress = (
                         (destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00) ?
-                            (new String(domainName)) :
-                            (
-                                this.getUnsignedInt(destAddr[0]) + "." +
-                                this.getUnsignedInt(destAddr[1]) + "." +
-                                this.getUnsignedInt(destAddr[2]) + "." +
-                                this.getUnsignedInt(destAddr[3])
-                            )
+                            (Utils.getInetAdressByName(new String(domainName))) :
+                            (Utils.getInetAdressByBytes(destAddr))
                     );
 
                     //Check command flag if it's a tcp-connection or tcp-server
                     if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
                     {
+                        //Check if the command is supported or the domain or ip4 is valid
+                        if(!isConnectionModeSupported(SocksCommand.ESTABLISH_TCP_CONNECTION) || (destinationAddress == null))
+                        {
+                            //Build connectionAnswer
+                            byte[] connectionAnswer = new byte[]
+                            {
+                                0x00, Socks4Reply.REQUEST_REJECTED_OR_FAILED.getByteCode(),
+                                destPort[0], destPort[1],
+                                destAddr[0], destAddr[1], destAddr[2], destAddr[3]
+                            };
+
+                            //Send server reject to client
+                            this.proxyToClientOutput.write(connectionAnswer);
+                            this.proxyToClientOutput.flush();
+
+                            //Close the connection
+                            this.closeConnection(this.socket, null);
+                            return;
+                        }
+
+                        //Try to connect to the given Address
+                        Socket tempProxyToServer = new Socket(destinationAddress, destinationPort);
+                        tempProxyToServer.setSoTimeout(5000);
+
+                        //Check if the connection was successful
+                        if(!tempProxyToServer.isConnected())
+                        {
+                            //Build connectionAnswer
+                            byte[] connectionAnswer = new byte[]
+                            {
+                                0x00, Socks4Reply.REQUEST_REJECTED_OR_FAILED.getByteCode(),
+                                destPort[0], destPort[1],
+                                destAddr[0], destAddr[1], destAddr[2], destAddr[3]
+                            };
+
+                            //Send server reject to client
+                            this.proxyToClientOutput.write(connectionAnswer);
+                            this.proxyToClientOutput.flush();
+
+                            //Close the connection
+                            this.closeConnection(this.socket, null);
+                            return;
+                        }
+
+                        //Inform client that connection is established
+                        byte[] tempDestAdr = destinationAddress.getAddress();
+                        byte[] connectionAnswer = new byte[]
+                        {
+                            0x00, Socks4Reply.REQUEST_GRANTED.getByteCode(),
+                            destPort[0], destPort[1],
+                            tempDestAdr[0], tempDestAdr[1], tempDestAdr[2], tempDestAdr[3]
+                        };
+
+                        //Send server accept to the client
+                        this.proxyToClientOutput.write(connectionAnswer);
+                        this.proxyToClientOutput.flush();
+
+                        //Create ProxyToServerThread
+                        this.clientToServer = new RelayThread(this.socket, tempProxyToServer);
+                        this.serverToClient = new RelayThread(tempProxyToServer, this.socket);
+
+                        //Start bidirectional threads
+                        this.clientToServer.start();
+                        this.serverToClient.start();
+
+                        this.serverToClient.join();
+                        this.clientToServer.join();
+
+                        this.closeConnection(this.socket, tempProxyToServer);
 
                     } else {
 
@@ -456,27 +522,50 @@ public class SocksProxyServer
             return toRet;
         }
 
-        private int calcPort(byte hByte, byte lByte)
+        private final class RelayThread extends Thread
         {
-            return ((this.getUnsignedInt(hByte) * 256) + this.getUnsignedInt(lByte));
-        }
+            private final Socket fromSocket, toSocket;
 
-        private int getUnsignedInt(byte data)
-        {
-            return ((data < 0) ? (256 + data) : data);
-        }
-
-        private int indexOf(byte[] toCheck, byte toSearch)
-        {
-            for(int tempIndex = 0; tempIndex < toCheck.length; tempIndex++)
+            private RelayThread(Socket from, Socket to)
             {
-                if(toCheck[tempIndex] == toSearch)
-                {
-                    return tempIndex;
-                }
+                this.fromSocket = from;
+                this.toSocket = to;
             }
 
-            return -1;
+            public void run()
+            {
+                //Get Packages from Server and Send to Client
+                try {
+                    InputStream fromServer = this.fromSocket.getInputStream();
+                    OutputStream toClient = this.toSocket.getOutputStream();
+
+                    byte[] buffer = new byte[4096];
+                    int read = 0;
+
+                    while(running.get() && !this.fromSocket.isClosed() && !this.toSocket.isClosed() && (read >= 0))
+                    {
+                        try {
+                            read = fromServer.read(buffer);
+
+                            if(read > 0)
+                            {
+                                toClient.write(buffer, 0, read);
+
+                                if(fromServer.available() < 1)
+                                    toClient.flush();
+                            }
+
+                        } catch(Exception e1) {
+                            /* Nothing to do here */
+                        }
+                    }
+                } catch(Exception e2) {
+                    /* Nothing to do here */
+                }
+
+                //Stop the ProxyConnection
+                closeConnection(fromSocket, toSocket);
+            }
         }
     }
 }

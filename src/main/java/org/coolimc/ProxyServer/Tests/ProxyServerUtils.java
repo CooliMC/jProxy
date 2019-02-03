@@ -1,4 +1,6 @@
-package org.coolimc.ProxyServer.Utils;
+package org.coolimc.ProxyServer.Tests;
+
+import org.coolimc.ProxyServer.Tests.NetworkInterfaceApi;
 
 public class ProxyServerUtils
 {
