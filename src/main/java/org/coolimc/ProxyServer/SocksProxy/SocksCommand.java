@@ -8,6 +8,20 @@ public enum SocksCommand
 
     private final int byteCode;
 
+    public static SocksCommand valueOf(int code)
+    {
+        if(code == ESTABLISH_TCP_CONNECTION.getIntCode())
+            return ESTABLISH_TCP_CONNECTION;
+
+        if(code == ESTABLISH_TCP_PORT_SERVER.getIntCode())
+            return ESTABLISH_TCP_PORT_SERVER;
+
+        if(code == ESTABLISH_UDP_CONNECTION.getIntCode())
+            return ESTABLISH_UDP_CONNECTION;
+
+        return null;
+    }
+
     SocksCommand(int code)
     {
         this.byteCode = code;

@@ -16,6 +16,11 @@ public class SocksProxyServer
         myProxy.enableAuthenticationMethod(Socks5Authentication.NO_AUTHENTICATION_REQUIRED);
         myProxy.enableAuthenticationMethod(Socks5Authentication.USERNAME_PASSWORD);
 
+        //Enable ConnectionMethods
+        myProxy.enableConnectionMode(SocksCommand.ESTABLISH_TCP_CONNECTION);
+        myProxy.enableConnectionMode(SocksCommand.ESTABLISH_TCP_PORT_SERVER);
+        myProxy.enableConnectionMode(SocksCommand.ESTABLISH_UDP_CONNECTION);
+
         //Add UserProfiles
         myProxy.addUserProfile("CooliMC", "345678");
         myProxy.addUserProfile("Kanisterkopf", "MC-Donalds");
@@ -37,6 +42,7 @@ public class SocksProxyServer
 
     private List<RequestHandler> serviceThreads;
     private Set<Socks5Authentication> authenticationMethods;
+    private Set<SocksCommand> connectionModes;
     private Map<String, String> userProfiles;
 
     public SocksProxyServer(int port)
@@ -51,6 +57,7 @@ public class SocksProxyServer
         //Try to setup lists
         this.serviceThreads = Collections.synchronizedList(new ArrayList<>());
         this.authenticationMethods = Collections.synchronizedSet(new HashSet<>());
+        this.connectionModes = Collections.synchronizedSet(new HashSet<>());
         this.userProfiles = Collections.synchronizedMap(new HashMap<>());
 
         //User callback about status
@@ -84,6 +91,16 @@ public class SocksProxyServer
     public void disableAuthenticationMethod(Socks5Authentication toDeactivate)
     {
         this.authenticationMethods.remove(toDeactivate);
+    }
+
+    public void enableConnectionMode(SocksCommand toActivate)
+    {
+        this.connectionModes.add(toActivate);
+    }
+
+    public void disableConnectionMode(SocksCommand toDeactivate)
+    {
+        this.connectionModes.remove(toDeactivate);
     }
 
     public void addUserProfile(String username, String password)
@@ -125,6 +142,12 @@ public class SocksProxyServer
 
         //If there is no supported method return noAcceptableMethod
         return Socks5Authentication.NO_ACCEPTABLE_METHODS.getByteCode();
+    }
+
+    private boolean isConnectionModeSupported(byte toCheck)
+    {
+        //Loop through all server supported ConnectionModes and check for a match
+        return this.connectionModes.contains(SocksCommand.valueOf(toCheck));
     }
 
     private boolean checkCredentials(String username, String password)

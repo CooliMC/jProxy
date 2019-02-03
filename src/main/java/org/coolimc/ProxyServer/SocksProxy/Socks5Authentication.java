@@ -9,6 +9,23 @@ public enum Socks5Authentication
 
     private final int byteCode;
 
+    public static Socks5Authentication valueOf(int code)
+    {
+        if(code == NO_AUTHENTICATION_REQUIRED.getIntCode())
+            return NO_AUTHENTICATION_REQUIRED;
+
+        if(code == GSS_API.getIntCode())
+            return GSS_API;
+
+        if(code == USERNAME_PASSWORD.getIntCode())
+            return USERNAME_PASSWORD;
+
+        if(code == NO_ACCEPTABLE_METHODS.getIntCode())
+            return NO_ACCEPTABLE_METHODS;
+
+        return null;
+    }
+
     Socks5Authentication(int code)
     {
         this.byteCode = code;

@@ -14,6 +14,38 @@ public enum Socks5Reply
 
     private final int byteCode;
 
+    public static Socks5Reply valueOf(int code)
+    {
+        if(code == SUCCEEDED.getIntCode())
+            return SUCCEEDED;
+
+        if(code == SOCKS_SERVER_FAILURE.getIntCode())
+            return SOCKS_SERVER_FAILURE;
+
+        if(code == CONNECTION_FORBIDDEN_RULESET.getIntCode())
+            return CONNECTION_FORBIDDEN_RULESET;
+
+        if(code == NETWORK_UNREACHABLE.getIntCode())
+            return NETWORK_UNREACHABLE;
+
+        if(code == HOST_UNREACHABLE.getIntCode())
+            return HOST_UNREACHABLE;
+
+        if(code == CONNECTION_REFUSED.getIntCode())
+            return CONNECTION_REFUSED;
+
+        if(code == TTL_EXPIRED.getIntCode())
+            return TTL_EXPIRED;
+
+        if(code == COMMAND_NOT_SUPPORTED.getIntCode())
+            return COMMAND_NOT_SUPPORTED;
+
+        if(code == ADDRESS_TYPE_NOT_SUPPORTED.getIntCode())
+            return ADDRESS_TYPE_NOT_SUPPORTED;
+
+        return null;
+    }
+
     Socks5Reply(int code)
     {
         this.byteCode = code;

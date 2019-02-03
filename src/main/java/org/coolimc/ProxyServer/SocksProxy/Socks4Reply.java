@@ -9,6 +9,23 @@ public enum Socks4Reply
 
     private final int byteCode;
 
+    public static Socks4Reply valueOf(int code)
+    {
+        if (code == REQUEST_GRANTED.getIntCode())
+            return REQUEST_GRANTED;
+
+        if (code == REQUEST_REJECTED_OR_FAILED.getIntCode())
+            return REQUEST_REJECTED_OR_FAILED;
+
+        if (code == REQUEST_FAILED_RUNNING_CLIENTID.getIntCode())
+            return REQUEST_FAILED_RUNNING_CLIENTID;
+
+        if (code == REQUEST_FAILED_VERFYING_CLIENTID.getIntCode())
+            return REQUEST_FAILED_VERFYING_CLIENTID;
+
+        return null;
+    }
+
     Socks4Reply(int code)
     {
         this.byteCode = code;
