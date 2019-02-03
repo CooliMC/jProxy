@@ -335,16 +335,19 @@ public class SocksProxyServer
                     }
 
                     //Get destination port and address
-                    int destinationPort = this.calcPort(destAddr[0], destPort[1]);
+                    int destinationPort = this.calcPort(destPort[0], destPort[1]);
 
                     //Check if its a normal ip4 or a domain
-                   String destinationAddress = (
+                    String destinationAddress = (
                         (destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00) ?
                             (new String(domainName)) :
-                            (destAddr[0] + "." + destAddr[1] + "." + destAddr[2] + "." + destAddr[3])
-                   );
-
-                   System.out.println("Connecting to: " + destinationAddress + ":" + destinationPort);
+                            (
+                                this.getUnsignedInt(destAddr[0]) + "." +
+                                this.getUnsignedInt(destAddr[1]) + "." +
+                                this.getUnsignedInt(destAddr[2]) + "." +
+                                this.getUnsignedInt(destAddr[3])
+                            )
+                    );
 
                     //Check command flag if it's a tcp-connection or tcp-server
                     if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
@@ -432,7 +435,7 @@ public class SocksProxyServer
 
         private int calcPort(byte hByte, byte lByte)
         {
-            return ((hByte * 256) + lByte);
+            return ((this.getUnsignedInt(hByte) * 256) + this.getUnsignedInt(lByte));
         }
 
         private int getUnsignedInt(byte data)
