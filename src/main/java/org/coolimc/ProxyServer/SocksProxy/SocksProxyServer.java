@@ -448,12 +448,6 @@ public class SocksProxyServer
                 }
 
                 System.out.println("Ende Request");
-                //Check for the right header length
-                //if(request.length < 3) return;
-
-                //Check for connection type and call right function
-                //if(this.isHttpsTunnel(request[0])) this.connectTunnel(request[1]);
-                //else this.connectRelay(request[1]);
 
             } catch(SocketTimeoutException e1) {
                 /* Nothing to do here */
