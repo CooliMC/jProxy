@@ -443,6 +443,26 @@ public class SocksProxyServer
                         this.closeConnection(this.socket, tempProxyToServer);
 
                     } else {
+                        //Check if the command is supported or the ip4 is valid
+                        if(!isConnectionModeSupported(SocksCommand.ESTABLISH_TCP_PORT_SERVER) || (destinationAddress == null))
+                        {
+                            //Build connectionAnswer
+                            byte[] connectionAnswer = new byte[]
+                            {
+                                0x00, Socks4Reply.REQUEST_REJECTED_OR_FAILED.getByteCode(),
+                                destPort[0], destPort[1],
+                                destAddr[0], destAddr[1], destAddr[2], destAddr[3]
+                            };
+
+                            //Send server reject to client
+                            this.proxyToClientOutput.write(connectionAnswer);
+                            this.proxyToClientOutput.flush();
+
+                            //Close the connection
+                            this.closeConnection(this.socket, null);
+                            return;
+                        }
+
 
                     }
                 }
