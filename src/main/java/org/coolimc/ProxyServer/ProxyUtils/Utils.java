@@ -1,6 +1,7 @@
 package org.coolimc.ProxyServer.ProxyUtils;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 
 public class Utils
 {
@@ -9,13 +10,18 @@ public class Utils
         /* Do nothing instead of being private. */
     }
 
-    public static InetAddress getInetAdressByBytes(byte[] toBuild)
+    public static InetAddress anyLocalAddress()
+    {
+        return ((new InetSocketAddress(0)).getAddress());
+    }
+
+    public static InetAddress getInetAddressByBytes(byte[] toBuild)
     {
         try { return InetAddress.getByAddress(toBuild); }
         catch(Exception e) { return null; }
     }
 
-    public static InetAddress getInetAdressByName(String toResolve)
+    public static InetAddress getInetAddressByName(String toResolve)
     {
         try { return InetAddress.getByName(toResolve); }
         catch(Exception e) { return null; }

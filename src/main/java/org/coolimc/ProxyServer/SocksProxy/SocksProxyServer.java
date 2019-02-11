@@ -35,8 +35,10 @@ public class SocksProxyServer
     private static final int DEFAULT_SOCKS5_AUTH_HEADER_MIN_LENGTH = 3;
     private static final int DEFAULT_SOCKS5_AUTH_PRE_HEADER_LENGTH = 2;
     private static final int DEFAULT_SOCKS5_AUTH_TIMEOUT_MS = 2500;
-    private static final int DEFAULT_SOCKS4_HEADER_LENGTH = 9;
+
     private static final int DEFAULT_SOCKS5_HEADER_LENGTH = 8;
+    private static final int DEFAULT_SOCKS4_HEADER_LENGTH = 9;
+
 
     //Variables
     private ServerSocket serverSocket;
@@ -365,8 +367,8 @@ public class SocksProxyServer
                     //Check if its a normal ip4 or a domain
                     InetAddress destinationAddress = (
                         (destAddr[0] == 0x00 && destAddr[1] == 0x00 && destAddr[2] == 0x00 && destAddr[3] != 0x00) ?
-                            (Utils.getInetAdressByName(new String(domainName))) :
-                            (Utils.getInetAdressByBytes(destAddr))
+                            (Utils.getInetAddressByName(new String(domainName))) :
+                            (Utils.getInetAddressByBytes(destAddr))
                     );
 
                     //Check command flag if it's a tcp-connection or tcp-server
