@@ -478,6 +478,9 @@ public class SocksProxyServer
                         if(bindSocket == null)
                             bindSocket = new ServerSocket(0);
 
+                        //Set timeout as default 2 minute
+                        bindSocket.setSoTimeout(120000);
+
                         //Get the port of the serverSocketBind
                         byte[] bindPort = Utils.calcPortByInt(bindSocket.getLocalPort());
                         byte[] bindAddress = (Utils.anyLocalAddress().getAddress());
@@ -494,7 +497,22 @@ public class SocksProxyServer
                         this.proxyToClientOutput.write(connectionAnswer);
                         this.proxyToClientOutput.flush();
 
-                        //TODO: WEITERMACHEN MIT SERVSOCKET ACCEPT USW
+                        //Try to connect to the given Address
+                        Socket tempProxyToServer = bindSocket.accept();
+                        tempProxyToServer.setSoTimeout(5000);
+
+                        //Create ProxyToServerThread
+                        this.clientToServer = new RelayThread(this.socket, tempProxyToServer);
+                        this.serverToClient = new RelayThread(tempProxyToServer, this.socket);
+
+                        //Start bidirectional threads
+                        this.clientToServer.start();
+                        this.serverToClient.start();
+
+                        this.serverToClient.join();
+                        this.clientToServer.join();
+
+                        this.closeConnection(this.socket, tempProxyToServer);
                     }
                 }
 
