@@ -1,11 +1,10 @@
 package org.coolimc.ProxyServer.SocksProxy;
 
 import org.coolimc.ProxyServer.ProxyUtils.Utils;
-
-import java.io.*;
-import java.net.*;
-import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.*;
+import java.net.*;
+import java.io.*;
 
 public class SocksProxyServer
 {
@@ -362,7 +361,7 @@ public class SocksProxyServer
                     }
 
                     //Get destination port and address
-                    int destinationPort = Utils.calcPort(destPort[0], destPort[1]);
+                    int destinationPort = Utils.calcPortByBytes(destPort[0], destPort[1]);
 
                     //Check if its a normal ip4 or a domain
                     InetAddress destinationAddress = (
@@ -465,7 +464,37 @@ public class SocksProxyServer
                             return;
                         }
 
+                        //Try to bind a socket to the given Port
+                        ServerSocket bindSocket = null;
 
+                        //Check if the serverSocket port is available and bind
+                        if(Utils.isTcpPortAvailable(destinationPort))
+                        {
+                            try { bindSocket = new ServerSocket(destinationPort); }
+                            catch(Exception e) { bindSocket = null; }
+                        }
+
+                        //Check if the port bind was successful
+                        if(bindSocket == null)
+                            bindSocket = new ServerSocket(0);
+
+                        //Get the port of the serverSocketBind
+                        byte[] bindPort = Utils.calcPortByInt(bindSocket.getLocalPort());
+                        byte[] bindAddress = (Utils.anyLocalAddress().getAddress());
+
+                        //Inform client that bind is established
+                        byte[] connectionAnswer = new byte[]
+                        {
+                            0x00, Socks4Reply.REQUEST_GRANTED.getByteCode(),
+                            bindPort[0], bindPort[1],
+                            bindAddress[0], bindAddress[1], bindAddress[2], bindAddress[3]
+                        };
+
+                        //Send server accept to the client
+                        this.proxyToClientOutput.write(connectionAnswer);
+                        this.proxyToClientOutput.flush();
+
+                        //TODO: WEITERMACHEN MIT SERVSOCKET ACCEPT USW
                     }
                 }
 
