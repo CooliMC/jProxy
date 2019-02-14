@@ -313,6 +313,39 @@ public class SocksProxyServer
                     if(firstRead.length < SocksProxyServer.DEFAULT_SOCKS5_HEADER_LENGTH)
                         return;
 
+                    //Check for Socks5 reserved third byte
+                    if(firstRead[2] != 0x00)
+                        return;
+
+                    //Get different fields
+                    byte[] destAddr; int nextByte = 0;
+
+                    //Get the address by the address type byte
+                    if(firstRead[3] == 0x01)
+                    {
+                        nextByte = 8;
+                        destAddr = Arrays.copyOfRange(firstRead, 4, 8);
+                    } else if(firstRead[3] == 0x03) {
+                        nextByte = (5 + Utils.getUnsignedInt(firstRead[4]));
+                        destAddr = Arrays.copyOfRange(firstRead,5, nextByte);
+                    } else if(firstRead[3] == 0x04) {
+                        nextByte = 20;
+                        destAddr = Arrays.copyOfRange(firstRead, 4, 20);
+                    } else {
+                        return;
+                    }
+
+                    //Check for correct length
+                    if(nextByte < 0 || (nextByte + 2) != firstRead.length)
+                        return;
+
+                    //Get the destination port
+                    byte[] destPort = Arrays.copyOfRange(firstRead, nextByte, firstRead.length);
+
+                    //TODO CHECK HERE
+                    System.out.println("Port: " + Arrays.toString(destPort));
+                    System.out.println("Address: " + Arrays.toString(destAddr));
+
                     //Check command flag if it's a tcp-connection or tcp-server or udp-connection
                     if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
                     {
