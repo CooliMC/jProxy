@@ -498,6 +498,7 @@ public class SocksProxyServer
                         this.proxyToClientOutput.flush();
 
                         //Try to connect to the given Address
+                        //TODO: MAYBE A TRY_CATCH AROUND THE FOLLOWING 6 LINES OF CODE
                         Socket tempProxyToServer = bindSocket.accept();
                         tempProxyToServer.setSoTimeout(5000);
 
