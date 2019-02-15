@@ -318,7 +318,7 @@ public class SocksProxyServer
                         return;
 
                     //Get different fields
-                    byte[] destAddr; int nextByte = 0;
+                    byte[] destAddr; int nextByte;
 
                     //Get the address by the address type byte
                     if(firstRead[3] == 0x01)
