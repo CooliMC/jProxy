@@ -1,9 +1,6 @@
 package org.coolimc.ProxyServer.ProxyUtils;
 
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.*;
 
 public class Utils
 {
@@ -27,6 +24,11 @@ public class Utils
     {
         try { return InetAddress.getByName(toResolve); }
         catch(Exception e) { return null; }
+    }
+
+    public static InetAddress getInetAddressByName(byte[] toResolve)
+    {
+        return Utils.getInetAddressByName(new String(toResolve));
     }
 
     public static int calcPortByBytes(byte hByte, byte lByte)

@@ -299,6 +299,7 @@ public class SocksProxyServer
                     ) return;
                 }
 
+                //TODO: CHECK FOR SOCKS4 (91 Callback) / SOCKS5 (CUSTOM REPLY)
                 //Check for valid command flag
                 if(
                     (firstRead[1] != SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode()) &&
@@ -318,42 +319,114 @@ public class SocksProxyServer
                         return;
 
                     //Get different fields
-                    byte[] destAddr; int nextByte;
+                    InetAddress destinationAddress = null;
+                    int destinationPort = 0;
 
-                    //Get the address by the address type byte
-                    if(firstRead[3] == 0x01)
+                    //Get the address and port by the specific address byte
+                    if((firstRead[3] == 0x01) && (firstRead.length == 10))
                     {
-                        nextByte = 8;
-                        destAddr = Arrays.copyOfRange(firstRead, 4, 8);
-                    } else if(firstRead[3] == 0x03) {
-                        nextByte = (5 + Utils.getUnsignedInt(firstRead[4]));
-                        destAddr = Arrays.copyOfRange(firstRead,5, nextByte);
-                    } else if(firstRead[3] == 0x04) {
-                        nextByte = 20;
-                        destAddr = Arrays.copyOfRange(firstRead, 4, 20);
+                        destinationAddress = Utils.getInetAddressByBytes(Arrays.copyOfRange(firstRead, 4, 8));
+                        destinationPort = Utils.calcPortByBytes(firstRead[8], firstRead[9]);
+                    } else if((firstRead[3] == 0x04) && (firstRead.length == 22)) {
+                        destinationAddress = Utils.getInetAddressByBytes(Arrays.copyOfRange(firstRead, 4, 20));
+                        destinationPort = Utils.calcPortByBytes(firstRead[20], firstRead[21]);
                     } else {
-                        return;
+                        //Check for full domain names or invalid address byte
+                        int tempByte = (5 + Utils.getUnsignedInt(firstRead[4]));
+
+                        if((firstRead[3] == 0x03) && (firstRead.length == (tempByte + 2)))
+                        {
+                            destinationAddress = Utils.getInetAddressByName(Arrays.copyOfRange(firstRead,5, tempByte));
+                            destinationPort = Utils.calcPortByBytes(firstRead[tempByte], firstRead[tempByte + 1]);
+                        } else {
+                            //TODO: ADDRESS TYPE NOT SUPPORTED REPLY x08
+                            return;
+                        }
                     }
 
-                    //Check for correct length
-                    if(nextByte < 0 || (nextByte + 2) != firstRead.length)
-                        return;
-
-                    //Get the destination port
-                    byte[] destPort = Arrays.copyOfRange(firstRead, nextByte, firstRead.length);
+                    //TODO: CHECK FOR BLOCK LIST AND ADD REFUSED BY RULESET x02 REPLY
 
                     //TODO CHECK HERE
-                    System.out.println("Port: " + Arrays.toString(destPort));
-                    System.out.println("Address: " + Arrays.toString(destAddr));
+                    System.out.println("Port: " + destinationPort);
+                    System.out.println("Address: " + destinationAddress);
 
                     //Check command flag if it's a tcp-connection or tcp-server or udp-connection
                     if(firstRead[1] == SocksCommand.ESTABLISH_TCP_CONNECTION.getIntCode())
                     {
+                        //Check if the command is supported or the domain or ip4/6 is valid
+                        if(!isConnectionModeSupported(SocksCommand.ESTABLISH_TCP_CONNECTION) || (destinationAddress == null))
+                        {
+                            //Build connectionAnswer
+                            if(destinationAddress == null) firstRead[1] = Socks5Reply.HOST_UNREACHABLE.getByteCode();
+                            else firstRead[1] = Socks5Reply.COMMAND_NOT_SUPPORTED.getByteCode();
+
+                            //Send server reject to client
+                            this.proxyToClientOutput.write(firstRead);
+                            this.proxyToClientOutput.flush();
+
+                            //Close the connection
+                            this.closeConnection(this.socket, null);
+                            return;
+                        }
+
+                        //Try to connect to the given Address
+                        Socket tempProxyToServer = null;
+                        byte replyCode = 0x00;
+
+                        try {
+                            tempProxyToServer = new Socket(destinationAddress, destinationPort);
+                            tempProxyToServer.setSoTimeout(5000);
+                        }
+                        catch(NoRouteToHostException e1) { replyCode = Socks5Reply.NETWORK_UNREACHABLE.getByteCode(); }
+                        catch(SocketTimeoutException e2) { replyCode = Socks5Reply.TTL_EXPIRED.getByteCode(); }
+                        catch(ConnectException e3)
+                        {
+                            if(e3.getMessage().toLowerCase().contains("connection refused"))
+                                replyCode = Socks5Reply.CONNECTION_REFUSED.getByteCode();
+                            else
+                                replyCode = Socks5Reply.HOST_UNREACHABLE.getByteCode();
+                        }
+                        catch(Exception e4) { replyCode = Socks5Reply.SOCKS_SERVER_FAILURE.getByteCode(); }
+
+                        //Check if the connection was successful
+                        if((replyCode != 0x00) || (!tempProxyToServer.isConnected()))
+                        {
+                            //Build connectionAnswer
+                            firstRead[1] = replyCode;
+
+                            //Send server reject to client
+                            this.proxyToClientOutput.write(firstRead);
+                            this.proxyToClientOutput.flush();
+
+                            //Close the connection
+                            this.closeConnection(this.socket, null);
+                            return;
+                        }
+
+                        //Inform client that connection is established
+                        firstRead[1] = Socks5Reply.SUCCEEDED.getByteCode();
+
+                        //Send server accept to the client
+                        this.proxyToClientOutput.write(firstRead);
+                        this.proxyToClientOutput.flush();
+
+                        //Create ProxyToServerThread
+                        this.clientToServer = new RelayThread(this.socket, tempProxyToServer);
+                        this.serverToClient = new RelayThread(tempProxyToServer, this.socket);
+
+                        //Start bidirectional threads
+                        this.clientToServer.start();
+                        this.serverToClient.start();
+
+                        this.serverToClient.join();
+                        this.clientToServer.join();
+
+                        this.closeConnection(this.socket, tempProxyToServer);
 
                     } else if(firstRead[1] == SocksCommand.ESTABLISH_TCP_PORT_SERVER.getIntCode()) {
-
+                        //TODO
                     } else {
-
+                        //TODO
                     }
 
                 } else {
@@ -534,6 +607,8 @@ public class SocksProxyServer
                         //TODO: MAYBE A TRY_CATCH AROUND THE FOLLOWING 6 LINES OF CODE
                         Socket tempProxyToServer = bindSocket.accept();
                         tempProxyToServer.setSoTimeout(5000);
+
+                        //TODO: CHECK FOR CORRECT PARTNER IP (GIVEN BY CLIENT) AND INFORM CLIENT
 
                         //Create ProxyToServerThread
                         this.clientToServer = new RelayThread(this.socket, tempProxyToServer);
