@@ -239,7 +239,7 @@ public class SocksProxyServer
 
                     //Check for usernameAndPassword
                     if(serverAcceptedAuth == Socks5Authentication.USERNAME_PASSWORD.getByteCode())
-                    {
+                    {System.out.println("Lel Username Password");
                         //Wait for login packet with username and password
                         byte[] authPacket = this.readFromInputStream(DEFAULT_SOCKS5_AUTH_TIMEOUT_MS);
 
@@ -628,6 +628,7 @@ public class SocksProxyServer
                 System.out.println("Ende Request");
 
             } catch(SocketTimeoutException e1) {
+                e1.printStackTrace();
                 /* Nothing to do here */
             } catch(Exception e2) {
                 e2.printStackTrace();
@@ -683,7 +684,7 @@ public class SocksProxyServer
             while(toRet.length == 0)
             {
                 //Check for timeout
-                if((timeout > 0) || (tempTime <= System.currentTimeMillis()))
+                if((timeout > 0) && (tempTime <= System.currentTimeMillis()))
                     throw new SocketTimeoutException("Read timed out");
 
                 //If there is no timeout check for new data
